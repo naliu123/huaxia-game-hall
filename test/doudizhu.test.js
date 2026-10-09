@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { doudizhu,createDeck,dealRound,classify,canBeat } from '../src/games/doudizhu.js';
+import { RoomManager } from '../src/room-manager.js';
+const values={'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13,A:14,'2':15,SJ:16,BJ:17};
+const players=[1,2,3].map(index=>({index,expired:false}));
+const cards=ranks=>ranks.map((rank,index)=>({id:`${rank}-${index}`,rank,suit:'♠',value:values[rank]}));
+const combo=ranks=>classify(cards(ranks));
+const act=(state,action,playerIndex)=>doudizhu.reduce(state,action,{playerIndex,players});
+function playing(hands,multiplier=1){return {...doudizhu.initialState(),phase:'playing',round:1,landlord:1,turn:1,hands:[[],...hands.map(cards)],bottom:cards(['3','4','5']),multiplier,scores:[0,0,0,0],playCounts:[0,0,0,0]};}
+const socket=()=>({readyState:1,sent:[],send(data){this.sent.push(JSON.parse(data));},close(){}});
+test('一副牌包含 54 张互不重复的牌',()=>{const d=createDeck();assert.equal(d.length,54);assert.equal(new Set(d.map(c=>c.id)).size,54);assert.deepEqual(d.slice(-2).map(c=>c.rank),['SJ','BJ']);});
+test('识别斗地主全部基础牌型',()=>{const cases=[[['3'],'single'],[['4','4'],'pair'],[['5','5','5'],'triple'],[['6','6','6','9'],'triple-single'],[['7','7','7','J','J'],'triple-pair'],[['3','4','5','6','7'],'straight'],[['3','3','4','4','5','5'],'pair-straight'],[['3','3','3','4','4','4'],'airplane'],[['3','3','3','4','4','4','8','9'],'airplane-single'],[['3','3','3','4','4','4','8','8','9','9'],'airplane-pair'],[['8','8','8','8','3','4'],'four-two-single'],[['8','8','8','8','3','3','4','4'],'four-two-pair'],[['Q','Q','Q','Q'],'bomb'],[['SJ','BJ'],'rocket']];for(const [r,t] of cases)assert.equal(combo(r)?.type,t);assert.equal(combo(['10','J','Q','K','A','2']),null);});
+test('同型同长度按主点比较，炸弹与火箭正确压制',()=>{assert.equal(canBeat(combo(['4']),combo(['3'])),true);assert.equal(canBeat(combo(['4','4']),combo(['3'])),false);assert.equal(canBeat(combo(['3','3','3','3']),combo(['2'])),true);assert.equal(canBeat(combo(['SJ','BJ']),combo(['2','2','2','2'])),true);});
+test('发牌、叫分、地主收底牌和三人加倍流程完整',()=>{let s=dealRound(doudizhu.initialState(),()=>.42);s=act(s,{type:'bid',score:1},1);s=act(s,{type:'bid',score:2},2);s=act(s,{type:'bid',score:0},3);assert.equal(s.landlord,2);assert.equal(s.hands[2].length,20);s=act(s,{type:'double',enabled:true},1);s=act(s,{type:'double',enabled:false},2);s=act(s,{type:'double',enabled:true},3);assert.equal(s.phase,'playing');assert.equal(s.multiplier,8);});
+test('出牌、不出、两家不出后重新领出均由服务端校验',()=>{let s=playing([['3','9'],['4','10'],['5','J']]);s=act(s,{type:'play',cards:[s.hands[1][0].id]},1);assert.throws(()=>act(s,{type:'play',cards:[s.hands[2][0].id]},3),/轮到/);s=act(s,{type:'pass'},2);s=act(s,{type:'pass'},3);assert.equal(s.turn,1);assert.equal(s.trick,null);});
+test('炸弹、春天结算与多局累计积分保持零和',()=>{let b=playing([['3','3','3','3','9'],['4'],['5']]);b=act(b,{type:'play',cards:b.hands[1].slice(0,4).map(c=>c.id)},1);assert.equal(b.multiplier,2);let s=playing([['A'],['3'],['4']],2);s=act(s,{type:'play',cards:[s.hands[1][0].id]},1);assert.equal(s.spring,'spring');assert.deepEqual(s.roundDelta.slice(1),[8,-4,-4]);s=act(s,{type:'nextRound'},2);assert.deepEqual(s.scores.slice(1),[8,-4,-4]);});
+test('农民在地主仅出一手时获胜触发反春',()=>{let s=playing([['3','4'],['5'],['6']]);s=act(s,{type:'play',cards:[s.hands[1][0].id]},1);s=act(s,{type:'play',cards:[s.hands[2][0].id]},2);assert.equal(s.spring,'anti-spring');assert.deepEqual(s.roundDelta.slice(1),[-4,2,2]);});
+test('房间快照只向玩家展示自己的手牌，观战者看不到任何手牌',()=>{const m=new RoomManager({games:[doudizhu]});const r=m.create('doudizhu');const ss=[socket(),socket(),socket(),socket()];ss.slice(0,3).forEach(s=>m.join(r.id,s));const a=m.snapshot(r,ss[0]).room.state,b=m.snapshot(r,ss[1]).room.state;m.join(r.id,ss[3]);const w=m.snapshot(r,ss[3]).room.state;assert.equal(a.hand.length,17);assert.notDeepEqual(a.hand,b.hand);assert.equal(w.hand,null);assert.equal('hands'in a,false);});

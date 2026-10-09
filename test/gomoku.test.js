@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { gomoku } from '../src/games/gomoku.js';
+const players=[{index:1},{index:2}];
+const act=(state,action,playerIndex)=>gomoku.reduce(state,action,{playerIndex,players});
+test('双方依次落子并判定五连胜',()=>{let s=gomoku.initialState();for(let c=0;c<5;c++){s=act(s,{type:'place',row:0,col:c},1);if(c<4)s=act(s,{type:'place',row:1,col:c},2);}assert.equal(s.winner,1);assert.equal(s.moves.length,9);});
+test('拒绝悔棋不会改变棋盘',()=>{let s=act(gomoku.initialState(),{type:'place',row:7,col:7},1);s=act(s,{type:'requestUndo'},1);s=act(s,{type:'answerUndo',accept:false},2);assert.equal(s.board[7][7],1);assert.equal(s.moves.length,1);assert.equal(s.undoRequest,null);});
+test('同意悔棋撤销最近一步并归还行棋权',()=>{let s=act(gomoku.initialState(),{type:'place',row:7,col:7},1);s=act(s,{type:'requestUndo'},1);s=act(s,{type:'answerUndo',accept:true},2);assert.equal(s.board[7][7],0);assert.equal(s.moves.length,0);assert.equal(s.turn,1);});
+test('拒绝越界、重复和抢先落子',()=>{const s=gomoku.initialState();assert.throws(()=>act(s,{type:'place',row:-1,col:2},1),/无效/);assert.throws(()=>act(s,{type:'place',row:2,col:2},2),/轮到/);const n=act(s,{type:'place',row:2,col:2},1);assert.throws(()=>act(n,{type:'place',row:2,col:2},2),/已经有棋子/);});
+test('对局结束后可重新开始并由黑方先手',()=>{let s=gomoku.initialState();for(let c=0;c<5;c++){s=act(s,{type:'place',row:0,col:c},1);if(c<4)s=act(s,{type:'place',row:1,col:c},2);}s=act(s,{type:'restart'},2);assert.equal(s.winner,0);assert.equal(s.turn,1);assert.equal(s.moves.length,0);});
+test('对局尚未结束时不能重新开始',()=>assert.throws(()=>act(gomoku.initialState(),{type:'restart'},1),/尚未结束/));
+test('认输由对方获胜',()=>{const s=act(gomoku.initialState(),{type:'surrender'},1);assert.equal(s.winner,2);assert.equal(s.endReason,'surrender');});
+test('求和需要对方同意',()=>{let s=act(gomoku.initialState(),{type:'requestDraw'},1);s=act(s,{type:'answerDraw',accept:false},2);assert.equal(s.winner,0);s=act(s,{type:'requestDraw'},2);s=act(s,{type:'answerDraw',accept:true},1);assert.equal(s.winner,-1);assert.equal(s.endReason,'agreed-draw');});

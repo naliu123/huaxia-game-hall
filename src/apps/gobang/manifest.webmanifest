@@ -1,0 +1,9 @@
+{
+  "name": "弈境五子棋",
+  "short_name": "五子棋",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b1118",
+  "theme_color": "#c9914f",
+  "orientation": "any"
+}

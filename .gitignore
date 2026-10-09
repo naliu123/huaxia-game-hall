@@ -1,0 +1,15 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+.DS_Store
+.screenshots/
+.trae-html-share-packages/
+coverage/
+*.log
+*.pem
+*.key
+*.sqlite
+*.db

@@ -1,0 +1,25 @@
+{
+  "name": "huaxia-game-hall",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:gobang": "BUILD_APP=gobang node scripts/build.js",
+    "build:doudizhu": "BUILD_APP=doudizhu node scripts/build.js",
+    "build:mahjong": "BUILD_APP=mahjong node scripts/build.js",
+    "build:admin": "BUILD_APP=admin node scripts/build.js",
+    "start:gobang": "APP=gobang node src/server/index.js",
+    "start:doudizhu": "APP=doudizhu node src/server/index.js",
+    "start:mahjong": "APP=mahjong node src/server/index.js",
+    "start:admin": "APP=admin node src/server/index.js",
+    "test": "node --test",
+    "check": "node --check src/server/index.js && node --check src/shared/app.js && node --check src/apps/admin/admin.js && node --test && node scripts/build.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

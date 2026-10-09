@@ -1,0 +1,9 @@
+{
+  "name": "弈境斗地主",
+  "short_name": "斗地主",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#081512",
+  "theme_color": "#b94036",
+  "orientation": "any"
+}
